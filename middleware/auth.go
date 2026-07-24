@@ -16,6 +16,8 @@ const (
 func Authenticate(authenticator auth.Authenticator, publicPaths []string, log *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Header.Del("X-User-ID")
+			r.Header.Del("X-User-Role")
 			for _, path := range publicPaths {
 				if strings.HasPrefix(r.URL.Path, path) {
 					next.ServeHTTP(w, r)

@@ -1,10 +1,14 @@
 package router
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Raphel6969/api-gateway/internal/config"
+	"github.com/Raphel6969/api-gateway/internal/health"
+	"github.com/Raphel6969/api-gateway/internal/loadbalancer"
 	"github.com/Raphel6969/api-gateway/internal/proxy"
 )
 
@@ -12,11 +16,16 @@ type Router struct {
 	mux *http.ServeMux
 }
 
-func New(cfg *config.Config) (*Router, error) {
+func New(cfg *config.Config, log *slog.Logger) (*Router, error) {
 	mux := http.NewServeMux()
 
 	for _, r := range cfg.Routes {
-		proxyHandler, err := proxy.NewReverseProxy(r.Target, r.Path)
+		lb := loadbalancer.NewRoundRobin(r.Targets)
+
+		checker := health.NewHealthCheck(r.Targets, lb, 3*time.Second, log)
+		checker.Start()
+
+		proxyHandler, err := proxy.NewLoadBalancedProxy(lb, r.Path)
 		if err != nil {
 			return nil, err
 		}

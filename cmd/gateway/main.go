@@ -12,6 +12,7 @@ import (
 
 	"github.com/Raphel6969/api-gateway/internal/auth"
 	"github.com/Raphel6969/api-gateway/internal/config"
+	"github.com/Raphel6969/api-gateway/internal/ratelimit"
 	"github.com/Raphel6969/api-gateway/internal/router"
 	"github.com/Raphel6969/api-gateway/middleware"
 	"github.com/Raphel6969/api-gateway/pkg/logger"
@@ -26,14 +27,14 @@ func main() {
 	cfg := config.LoadStaticConfig()
 
 	// Setup a basic router
-	rt, err := router.New(cfg)
+	rt, err := router.New(cfg, log)
 	if err != nil {
 		log.Error("Failed to initiate router ", "error", err)
 		os.Exit(1)
 	}
 
 	addr := cfg.Port
-	if !strings.HasSuffix(addr, ":") {
+	if !strings.HasPrefix(addr, ":") {
 		addr = ":" + addr
 	}
 
@@ -45,11 +46,14 @@ func main() {
 		},
 	)
 
+	limiter := ratelimit.NewRateLimiter(5, 1)
+
 	// Define public routes that do NOT require authentication
 	publicPaths := []string{"/public"}
 
 	pipeline := middleware.Chain(
 		rt,
+		middleware.RateLimit(limiter, log),
 		middleware.Authenticate(*authEngine, publicPaths, log),
 		middleware.Recovery(log),
 		middleware.RequestID,
