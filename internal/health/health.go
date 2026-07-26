@@ -44,6 +44,7 @@ func (hc *HealthChecker) checkAll() {
 		resp, err := hc.client.Get(target + "/")
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode <= 400 {
 			healthy = append(healthy, target)
+			hc.log.Info("Backend is HEALTHY", "target", target)
 			_ = resp.Body.Close()
 		} else {
 			if resp != nil {
