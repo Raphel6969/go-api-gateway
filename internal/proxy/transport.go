@@ -25,7 +25,16 @@ func (t *ResilientTransport) RoundTrip(req *http.Request) (*http.Response, error
 	var err error
 	backoff := 100 * time.Millisecond
 
-	for attempt := 0; attempt <= t.MaxRetries; attempt++ {
+	// Making sure only safe to retry are going through
+	isIdempotent := req.Method == http.MethodGet || req.Method == http.MethodHead || req.Method == http.MethodOptions
+
+	// Set max attempts: retry idempotent requests, run mutating requests only once
+	maxAttempts := t.MaxRetries
+	if !isIdempotent {
+		maxAttempts = 0
+	}
+
+	for attempt := 0; attempt <= maxAttempts; attempt++ {
 		resp, err = t.BaseTransport.RoundTrip(req)
 
 		if err == nil && resp.StatusCode < 500 {
