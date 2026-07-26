@@ -25,7 +25,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Router, error) {
 		checker := health.NewHealthCheck(r.Targets, lb, 3*time.Second, log)
 		checker.Start()
 
-		proxyHandler, err := proxy.NewLoadBalancedProxy(lb, r.Path)
+		proxyHandler, err := proxy.NewLoadBalancedProxy(lb, r.Path, log)
 		if err != nil {
 			return nil, err
 		}
