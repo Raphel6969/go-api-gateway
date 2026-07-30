@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Raphel6969/api-gateway/internal/auth"
+	"github.com/Raphel6969/api-gateway/internal/cache"
 	"github.com/Raphel6969/api-gateway/internal/config"
 	"github.com/Raphel6969/api-gateway/internal/ratelimit"
 	"github.com/Raphel6969/api-gateway/internal/router"
@@ -51,13 +52,16 @@ func main() {
 	// Define public routes that do NOT require authentication
 	publicPaths := []string{"/public"}
 
+	memCache := cache.NewMemoryCache()
+
 	pipeline := middleware.Chain(
 		rt,
-		middleware.RateLimit(limiter, log),
-		middleware.Authenticate(*authEngine, publicPaths, log),
 		middleware.Recovery(log),
 		middleware.RequestID,
 		middleware.Logging(log),
+		middleware.Authenticate(*authEngine, publicPaths, log),
+		middleware.RateLimit(limiter, log),
+		middleware.CacheMiddleware(memCache, 30*time.Second, log),
 	)
 
 	// Configure the HTTP Server
