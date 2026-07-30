@@ -1,0 +1,26 @@
+server:
+  port: ":8080"
+
+auth:
+  jwt_secret: "super-secret-gateway-key-32-bytes"
+  api_keys:
+    "key-client-123": "user_api_partner_1"
+    "key-admin-456": "admin_user"
+
+rate_limit:
+  capacity: 5
+  refill_rate: 1.0
+
+cache:
+  ttl_seconds: 30
+
+routes:
+  - path: "/users"
+    targets:
+      - "http://localhost:8081"
+      - "http://localhost:8082"
+    public: false
+  - path: "/public"
+    targets:
+      - "http://localhost:8083"
+    public: true
