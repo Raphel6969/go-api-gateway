@@ -17,10 +17,13 @@ cache:
 routes:
   - path: "/users"
     targets:
-      - "http://localhost:8081"
-      - "http://localhost:8082"
+      - "http://backend1:8081"   # Changed from localhost
+      - "http://backend2:8082"   # Changed from localhost
     public: false
+  
+  # Note: If you want to keep this /public route, you will also 
+  # need to add a 'backend3' to your docker-compose.yml!
   - path: "/public"
     targets:
-      - "http://localhost:8083"
+      - "http://backend3:8083"   # Changed from localhost
     public: true

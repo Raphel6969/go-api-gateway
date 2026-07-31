@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount your local config file so you can edit it without rebuilding the image!
+      - ./gateway.yaml:/app/gateway.yaml
+    depends_on:
+      - backend1
+      - backend2
+
+  backend1:
+    image: python:3.12-alpine
+    command: python3 -m http.server 8081
+    ports:
+      - "8081:8081"
+
+  backend2:
+    image: python:3.12-alpine
+    command: python3 -m http.server 8082
+    ports:
+      - "8082:8082"
+
+  backend3:
+    image: python:3.12-alpine
+    command: python3 -m http.server 8083
+    ports:
+      - "8083:8083"
