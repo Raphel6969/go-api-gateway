@@ -12,7 +12,7 @@ var valCfgFile string
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "Validate the gateway configuration file",
+	Short: "Validates the gateway configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
 		_, err := config.LoadConfig(valCfgFile)
 		if err != nil {

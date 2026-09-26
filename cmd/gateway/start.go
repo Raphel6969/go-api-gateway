@@ -26,21 +26,19 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the API Gateway server",
 	Run: func(cmd *cobra.Command, args []string) {
-		// 1. Initialize Logger
 		log := logger.New()
-		log.Info("Starting API Gateway...")
+		log.Info("Starting API Gateway...", "config", cfgFile)
 
-		// Load Config
-		cfg, err := config.LoadConfig("gateway.yaml")
+		// 1. Load the dynamic configuration file using the flag
+		cfg, err := config.LoadConfig(cfgFile)
 		if err != nil {
 			log.Error("Failed to load configuration", "error", err)
 			os.Exit(1)
 		}
 
-		// Setup a basic router
 		rt, err := router.New(cfg, log)
 		if err != nil {
-			log.Error("Failed to initiate router ", "error", err)
+			log.Error("Failed to initialize router", "error", err)
 			os.Exit(1)
 		}
 
@@ -70,7 +68,7 @@ var startCmd = &cobra.Command{
 		if !strings.HasPrefix(addr, ":") {
 			addr = ":" + addr
 		}
-		// Configure the HTTP Server
+
 		srv := &http.Server{
 			Addr:         addr,
 			Handler:      pipeline,
@@ -79,9 +77,8 @@ var startCmd = &cobra.Command{
 			IdleTimeout:  120 * time.Second,
 		}
 
-		// Start the server
 		go func() {
-			log.Info("Gateway Listening", "port", cfg.Server.Port)
+			log.Info("Gateway Listening", "port", addr)
 			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Error("Server Failed", "error", err)
 				os.Exit(1)
@@ -90,22 +87,20 @@ var startCmd = &cobra.Command{
 
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
 		<-quit
-		log.Info("Shutting down server gracefully. . .")
+		log.Info("Shutting down server gracefully...")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Error("server forced to shutdown", "error", err)
+			log.Error("Server forced to shutdown", "error", err)
 		}
-
 		log.Info("Server exited properly")
 	},
 }
 
 func init() {
-	startCmd.Flags().StringVarP(&cfgFile, "config", "c", "gateway.yaml", "config file (default is gateway.yaml")
+	// Add a --config flag to the start command
+	startCmd.Flags().StringVarP(&cfgFile, "config", "c", "gateway.yaml", "config file (default is gateway.yaml)")
 	rootCmd.AddCommand(startCmd)
 }
