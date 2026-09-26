@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Raphel6969/api-gateway/internal/cache"
+	"github.com/Raphel6969/api-gateway/internal/config/cache"
 )
 
 type cacheResponseWrite struct {
