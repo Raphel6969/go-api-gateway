@@ -10,6 +10,7 @@ import (
 	"github.com/Raphel6969/api-gateway/internal/health"
 	"github.com/Raphel6969/api-gateway/internal/loadbalancer"
 	"github.com/Raphel6969/api-gateway/internal/proxy"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Router struct {
@@ -18,6 +19,8 @@ type Router struct {
 
 func New(cfg *config.Config, log *slog.Logger) (*Router, error) {
 	mux := http.NewServeMux()
+
+	mux.Handle("/metrics", promhttp.Handler())
 
 	for _, r := range cfg.Routes {
 		lb := loadbalancer.NewRoundRobin(r.Targets)

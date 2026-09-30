@@ -15,6 +15,7 @@ import (
 	"github.com/Raphel6969/api-gateway/internal/auth"
 	"github.com/Raphel6969/api-gateway/internal/config"
 	"github.com/Raphel6969/api-gateway/internal/config/cache"
+	"github.com/Raphel6969/api-gateway/internal/metrics"
 	"github.com/Raphel6969/api-gateway/internal/middleware"
 	"github.com/Raphel6969/api-gateway/internal/ratelimit"
 	"github.com/Raphel6969/api-gateway/internal/router"
@@ -43,8 +44,11 @@ var startCmd = &cobra.Command{
 		log := logger.New()
 		log.Info("Starting API Gateway...", "config", cfgFile)
 
+		// Initialize Prometheus metrics collectors once
+		metricsRegistry := metrics.New()
+
 		// 1. Build the initial pipeline
-		initialPipeline, initialCfg, err := buildPipeline(cfgFile, log)
+		initialPipeline, initialCfg, err := buildPipeline(cfgFile, metricsRegistry, log)
 		if err != nil {
 			log.Error("Failed to build initial pipeline", "error", err)
 			os.Exit(1)
@@ -55,7 +59,7 @@ var startCmd = &cobra.Command{
 		dynamicHandler.pipeline.Store(initialPipeline)
 
 		// 3. Start the background config watcher
-		go watchConfig(cfgFile, dynamicHandler, log)
+		go watchConfig(cfgFile, metricsRegistry, dynamicHandler, log)
 
 		// 4. Start the HTTP Server
 		addr := initialCfg.Server.Port
@@ -95,7 +99,7 @@ var startCmd = &cobra.Command{
 }
 
 // buildPipeline reads the YAML and constructs the router and middlewares
-func buildPipeline(filename string, log *slog.Logger) (http.Handler, *config.Config, error) {
+func buildPipeline(filename string, m *metrics.Metrics, log *slog.Logger) (http.Handler, *config.Config, error) {
 	cfg, err := config.LoadConfig(filename)
 	if err != nil {
 		return nil, nil, err
@@ -106,7 +110,7 @@ func buildPipeline(filename string, log *slog.Logger) (http.Handler, *config.Con
 		return nil, nil, err
 	}
 
-	var publicPaths []string
+	publicPaths := []string{"/metrics", "/metrics/"}
 	for _, r := range cfg.Routes {
 		if r.Public {
 			publicPaths = append(publicPaths, r.Path)
@@ -122,17 +126,18 @@ func buildPipeline(filename string, log *slog.Logger) (http.Handler, *config.Con
 		rt,
 		middleware.Recovery(log),
 		middleware.RequestID,
+		middleware.Metrics(m),
 		middleware.Logging(log),
 		middleware.Authenticate(*authEngine, publicPaths, log),
 		middleware.RateLimit(limiter, log),
-		middleware.CacheMiddleware(memCache, cacheTTL, log),
+		middleware.CacheMiddleware(memCache, cacheTTL, m, log),
 	)
 
 	return pipeline, cfg, nil
 }
 
 // watchConfig listens for file saves and atomically hot-swaps the pipeline
-func watchConfig(filename string, dynamicHandler *DynamicHandler, log *slog.Logger) {
+func watchConfig(filename string, m *metrics.Metrics, dynamicHandler *DynamicHandler, log *slog.Logger) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Error("Failed to start config watcher", "error", err)
@@ -159,7 +164,7 @@ func watchConfig(filename string, dynamicHandler *DynamicHandler, log *slog.Logg
 				// Add a tiny delay because some text editors write in chunks
 				time.Sleep(100 * time.Millisecond)
 
-				newPipeline, _, err := buildPipeline(filename, log)
+				newPipeline, _, err := buildPipeline(filename, m, log)
 				if err != nil {
 					log.Error("Failed to reload config (keeping old config)", "error", err)
 				} else {

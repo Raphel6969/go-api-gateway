@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Raphel6969/api-gateway/internal/config/cache"
+	"github.com/Raphel6969/api-gateway/internal/metrics"
 )
 
 type cacheResponseWrite struct {
@@ -25,9 +27,14 @@ func (c *cacheResponseWrite) Write(b []byte) (int, error) {
 	return c.ResponseWriter.Write(b)
 }
 
-func CacheMiddleware(c *cache.MemoryCache, ttl time.Duration, log *slog.Logger) Middleware {
+func CacheMiddleware(c *cache.MemoryCache, ttl time.Duration, m *metrics.Metrics, log *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/metrics" || strings.HasPrefix(r.URL.Path, "/metrics") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			if r.Method != http.MethodGet {
 				next.ServeHTTP(w, r)
 				return
@@ -37,6 +44,7 @@ func CacheMiddleware(c *cache.MemoryCache, ttl time.Duration, log *slog.Logger) 
 			cacheKey := r.URL.Path + ":" + userID
 
 			if cachedBody, statusCode, found := c.Get(cacheKey); found {
+				m.CacheHits.Inc()
 				w.Header().Set("X-Cache", "HIT")
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(statusCode)
@@ -44,13 +52,14 @@ func CacheMiddleware(c *cache.MemoryCache, ttl time.Duration, log *slog.Logger) 
 				return
 			}
 
+			m.CacheMisses.Inc()
 			crw := &cacheResponseWrite{
 				ResponseWriter: w,
 				body:           &bytes.Buffer{},
 				statusCode:     http.StatusOK,
 			}
 			w.Header().Set("X-Cache", "MISS")
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(crw, r)
 
 			if crw.statusCode == http.StatusOK {
 				c.Set(cacheKey, crw.statusCode, crw.body.Bytes(), ttl)
