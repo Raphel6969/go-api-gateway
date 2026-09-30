@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/spf13/cobra"
 	"github.com/Raphel6969/api-gateway/internal/auth"
-	"github.com/Raphel6969/api-gateway/internal/config/cache"
 	"github.com/Raphel6969/api-gateway/internal/config"
+	"github.com/Raphel6969/api-gateway/internal/config/cache"
 	"github.com/Raphel6969/api-gateway/internal/middleware"
 	"github.com/Raphel6969/api-gateway/internal/ratelimit"
 	"github.com/Raphel6969/api-gateway/internal/router"
 	"github.com/Raphel6969/api-gateway/pkg/logger"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/cobra"
 )
 
 var cfgFile string
