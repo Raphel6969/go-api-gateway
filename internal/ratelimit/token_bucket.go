@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -32,7 +33,7 @@ func NewRateLimiter(capacity float64, refillRate float64) *RateLimiter {
 	return rl
 }
 
-func (rl *RateLimiter) Allow(key string) bool {
+func (rl *RateLimiter) Allow(ctx context.Context, key string) (bool, error) {
 	rl.mu.Lock()
 	b, exists := rl.buckets[key]
 	if !exists {
@@ -60,10 +61,15 @@ func (rl *RateLimiter) Allow(key string) bool {
 
 	if b.tokens >= 1.0 {
 		b.tokens -= 1.0
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
+}
+
+func (rl *RateLimiter) AllowSimple(key string) bool {
+	allowed, _ := rl.Allow(context.Background(), key)
+	return allowed
 }
 
 func (rl *RateLimiter) cleanupLoop() {

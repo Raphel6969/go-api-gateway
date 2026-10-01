@@ -24,3 +24,9 @@ routes:
     targets:
       - "http://backend3:8083"
     public: true
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  enabled: true

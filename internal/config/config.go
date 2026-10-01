@@ -30,11 +30,19 @@ type Route struct {
 	Public  bool     `yaml:"public"`
 }
 
+type RedisConfig struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+	Enabled  bool   `yaml:"enabled"`
+}
+
 type Config struct {
 	Server    ServerConfig    `yaml:"server"`
 	Auth      AuthConfig      `yaml:"auth"`
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
 	Cache     CacheConfig     `yaml:"cache"`
+	Redis     RedisConfig     `yaml:"redis"`
 	Routes    []Route         `yaml:"routes"`
 }
 

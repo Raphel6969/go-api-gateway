@@ -13,14 +13,15 @@ import (
 	"time"
 
 	"github.com/Raphel6969/api-gateway/internal/auth"
+	"github.com/Raphel6969/api-gateway/internal/cache"
 	"github.com/Raphel6969/api-gateway/internal/config"
-	"github.com/Raphel6969/api-gateway/internal/config/cache"
 	"github.com/Raphel6969/api-gateway/internal/metrics"
 	"github.com/Raphel6969/api-gateway/internal/middleware"
 	"github.com/Raphel6969/api-gateway/internal/ratelimit"
 	"github.com/Raphel6969/api-gateway/internal/router"
 	"github.com/Raphel6969/api-gateway/pkg/logger"
 	"github.com/fsnotify/fsnotify"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
 )
 
@@ -118,8 +119,24 @@ func buildPipeline(filename string, m *metrics.Metrics, log *slog.Logger) (http.
 	}
 
 	authEngine := auth.NewAuthenticator(cfg.Auth.JWTSecret, cfg.Auth.APIKeys)
-	limiter := ratelimit.NewRateLimiter(cfg.RateLimit.Capacity, cfg.RateLimit.RefillRate)
-	memCache := cache.NewMemoryCache()
+
+	var limiter middleware.Limiter
+	var responseCache cache.Cache
+	if cfg.Redis.Enabled {
+		rdb := redis.NewClient(&redis.Options{
+			Addr:     cfg.Redis.Addr,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		})
+
+		limiter = ratelimit.NewRedisLimiter(rdb, int(cfg.RateLimit.Capacity), 10*time.Second)
+		responseCache = cache.NewRedisCache(rdb)
+		log.Info("Using distributed Redis Rate limiter", "addr", cfg.Redis.Addr)
+	} else {
+		limiter = ratelimit.NewRateLimiter(cfg.RateLimit.Capacity, cfg.RateLimit.RefillRate)
+		log.Info("Using in-memory token bucket rate limiter")
+	}
+
 	cacheTTL := time.Duration(cfg.Cache.TTLSeconds) * time.Second
 
 	pipeline := middleware.Chain(
@@ -129,8 +146,8 @@ func buildPipeline(filename string, m *metrics.Metrics, log *slog.Logger) (http.
 		middleware.Metrics(m),
 		middleware.Logging(log),
 		middleware.Authenticate(*authEngine, publicPaths, log),
+		middleware.CacheMiddleware(responseCache, cacheTTL, m, log),
 		middleware.RateLimit(limiter, log),
-		middleware.CacheMiddleware(memCache, cacheTTL, m, log),
 	)
 
 	return pipeline, cfg, nil

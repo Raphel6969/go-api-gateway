@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -25,7 +26,7 @@ func NewMemoryCache() *MemoryCache {
 	return c
 }
 
-func (c *MemoryCache) Set(key string, statusCode int, body []byte, ttl time.Duration) {
+func (c *MemoryCache) Set(ctx context.Context, key string, statusCode int, body []byte, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -34,9 +35,10 @@ func (c *MemoryCache) Set(key string, statusCode int, body []byte, ttl time.Dura
 		statusCode: statusCode,
 		expiration: time.Now().Add(ttl),
 	}
+	return nil
 }
 
-func (c *MemoryCache) Get(key string) ([]byte, int, bool) {
+func (c *MemoryCache) Get(ctx context.Context, key string) ([]byte, int, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
